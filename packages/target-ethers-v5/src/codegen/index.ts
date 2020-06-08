@@ -12,56 +12,25 @@ import { codegenFunctions } from './functions'
 
 export function codegenContractTypings(contract: Contract) {
   const template = `
-  import { Contract, ContractTransaction, EventFilter, Signer } from "ethers";
-  import { Listener, Provider } from 'ethers/providers';
-  import { Arrayish, BigNumber, BigNumberish, Interface } from "ethers/utils";
-  import { TransactionOverrides, TypedEventDescription, TypedFunctionDescription } from ".";
-
-  interface ${contract.name}Interface extends Interface {
-    functions: {
-      ${values(contract.functions)
-        .map((v) => v[0])
-        .map(generateInterfaceFunctionDescription)
-        .join('\n')}
-    };
-
-    events: {
-      ${values(contract.events)
-        .map((v) => v[0])
-        .map(generateInterfaceEventDescription)
-        .join('\n')}
-    };
-  }
+  import { ethers, Contract, ContractTransaction, EventFilter, Signer, BigNumber, BigNumberish, BytesLike, ContractInterface, Overrides } from "ethers";
 
   export class ${contract.name} extends Contract {
-    connect(signerOrProvider: Signer | Provider | string): ${contract.name};
-    attach(addressOrName: string): ${contract.name};
-    deployed(): Promise<${contract.name}>;
-
-    on(event: EventFilter | string, listener: Listener): ${contract.name};
-    once(event: EventFilter | string, listener: Listener): ${contract.name};
-    addListener(eventName: EventFilter | string, listener: Listener): ${contract.name};
-    removeAllListeners(eventName: EventFilter | string): ${contract.name};
-    removeListener(eventName: any, listener: Listener): ${contract.name};
-
-    interface: ${contract.name}Interface;
-
     functions: {
-      ${values(contract.functions).map(codegenFunctions).join('\n')}
+      ${values(contract.functions).map(codegenFunctions.bind(null, true)).join('\n')}
     };
 
-    ${values(contract.functions).map(codegenFunctions).join('\n')}
+    ${values(contract.functions).map(codegenFunctions.bind(null, false)).join('\n')}
 
     filters: {
       ${values(contract.events)
-        .map((v) => v[0])
+        .map((v: any) => v[0])
         .map(generateEvents)
         .join('\n')}
     };
 
-    estimate: {
+    estimateGas: {
       ${values(contract.functions)
-        .map((v) => v[0])
+        .map((v: any) => v[0])
         .map(generateEstimateFunction)
         .join('\n')}
     };
@@ -73,7 +42,7 @@ export function codegenContractTypings(contract: Contract) {
 export function codegenContractFactory(contract: Contract, abi: any, bytecode?: BytecodeWithLinkReferences): string {
   const constructorArgs =
     (contract.constructor && contract.constructor[0] ? generateInputTypes(contract.constructor[0].inputs) : '') +
-    'overrides?: TransactionOverrides'
+    `overrides?: ${contract.constructor[0]?.stateMutability === 'payable' ? 'PayableOverrides' : 'Overrides'}`
   const constructorArgNamesWithoutOverrides =
     contract.constructor && contract.constructor[0] ? generateParamNames(contract.constructor[0].inputs) : ''
   const constructorArgNames = constructorArgNamesWithoutOverrides
@@ -89,20 +58,19 @@ export function codegenContractFactory(contract: Contract, abi: any, bytecode?: 
     ethersUtilsImports.length > 0 ? `import { ${ethersUtilsImports.join(', ')} } from "ethers/utils";` : ''
 
   return `
-  import { Contract, ContractFactory, Signer } from "ethers";
-  import { Provider } from "ethers/providers";
-  import { UnsignedTransaction } from "ethers/utils/transaction";
-  ${ethersUtilsImportLine}
+  import { ethers, Contract, ContractFactory, Signer, UnsignedTransaction, 
+    Overrides, PayableOverrides, ${ethersUtilsImports.join(', ')} } from "ethers";
+  import { TransactionRequest, Provider } from '@ethersproject/providers';
 
-  import { TransactionOverrides } from ".";
   import { ${contract.name} } from "./${contract.name}";
+
 
   export class ${contract.name}Factory extends ContractFactory {
     ${generateFactoryConstructor(contract, bytecode)}
     deploy(${constructorArgs}): Promise<${contract.name}> {
       return super.deploy(${constructorArgNames}) as Promise<${contract.name}>;
     }
-    getDeployTransaction(${constructorArgs}): UnsignedTransaction {
+    getDeployTransaction(${constructorArgs}): TransactionRequest {
       return super.getDeployTransaction(${constructorArgNames});
     };
     attach(address: string): ${contract.name} {

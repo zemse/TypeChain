@@ -9,8 +9,8 @@ export function generateInputTypes(input: Array<AbiParameter>): string {
   )
 }
 
-export function generateOutputTypes(outputs: Array<AbiOutputParameter>): string {
-  if (outputs.length === 1) {
+export function generateOutputTypes(outputs: Array<AbiOutputParameter>, usingResultObject: boolean): string {
+  if (!usingResultObject && outputs.length === 1) {
     return generateOutputType(outputs[0].type)
   } else {
     return `{
@@ -31,7 +31,7 @@ export function generateInputType(evmType: EvmType): string {
       return 'string'
     case 'bytes':
     case 'dynamic-bytes':
-      return 'Arrayish'
+      return 'BytesLike'
     case 'array':
       return `(${generateInputType(evmType.itemType)})[]`
     case 'boolean':

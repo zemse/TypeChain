@@ -21,6 +21,8 @@ export interface IEthersCfg {
 
 const DEFAULT_OUT_PATH = './types/ethers-contracts/'
 
+let contractNames: string[] = []
+
 export default class Ethers extends TsGeneratorPlugin {
   name = 'Ethers'
 
@@ -67,7 +69,9 @@ export default class Ethers extends TsGeneratorPlugin {
     if (this.contractCache[name]) {
       const { contract, abi } = this.contractCache[name]
       delete this.contractCache[name]
-      return [this.genContractFactoryFile(contract, abi, bytecode)]
+      return [
+        /*this.genContractFactoryFile(contract, abi, bytecode)*/
+      ]
     } else {
       this.bytecodeCache[name] = bytecode
     }
@@ -76,7 +80,6 @@ export default class Ethers extends TsGeneratorPlugin {
   transformAbiOrFullJsonFile(file: TFileDesc): TFileDesc[] | void {
     const name = getFilename(file.path)
     const abi = extractAbi(file.contents)
-
     if (abi.length === 0) {
       return
     }
@@ -86,7 +89,7 @@ export default class Ethers extends TsGeneratorPlugin {
     const bytecode = extractBytecode(file.contents) || this.bytecodeCache[name]
 
     if (bytecode) {
-      return [this.genContractTypingsFile(contract), this.genContractFactoryFile(contract, abi, bytecode)]
+      return [this.genContractTypingsFile(contract) /*, this.genContractFactoryFile(contract, abi, bytecode)*/]
     } else {
       this.contractCache[name] = { abi, contract }
       return [this.genContractTypingsFile(contract)]
@@ -94,18 +97,19 @@ export default class Ethers extends TsGeneratorPlugin {
   }
 
   genContractTypingsFile(contract: Contract): TFileDesc {
+    contractNames.push(`${contract.name}`)
     return {
       path: join(this.outDirAbs, `${contract.name}.d.ts`),
       contents: codegenContractTypings(contract),
     }
   }
 
-  genContractFactoryFile(contract: Contract, abi: any, bytecode?: BytecodeWithLinkReferences) {
-    return {
-      path: join(this.outDirAbs, `${contract.name}Factory.ts`),
-      contents: codegenContractFactory(contract, abi, bytecode),
-    }
-  }
+  // genContractFactoryFile(contract: Contract, abi: any, bytecode?: BytecodeWithLinkReferences) {
+  //   return {
+  //     path: join(this.outDirAbs, `${contract.name}Factory.ts`),
+  //     contents: codegenContractFactory(contract, abi, bytecode),
+  //   }
+  // }
 
   afterRun(): TFileDesc[] {
     // For each contract that doesn't have bytecode (it's either abstract, or only ABI was provided)
@@ -117,11 +121,24 @@ export default class Ethers extends TsGeneratorPlugin {
         contents: codegenAbstractContractFactory(contract, abi),
       }
     })
+
+    const indexContents = contractNames
+      .map((fileName) => {
+        return `export * from './${fileName}';\n`
+      })
+      .join('')
+
+    console.log({ indexContents, contractNames })
+
     return [
-      ...abstractFactoryFiles,
+      // ...abstractFactoryFiles,
+      // {
+      //   path: join(this.outDirAbs, 'index.d.ts'),
+      //   contents: readFileSync(join(__dirname, '../static/index.d.ts'), 'utf-8'),
+      // },
       {
-        path: join(this.outDirAbs, 'index.d.ts'),
-        contents: readFileSync(join(__dirname, '../static/index.d.ts'), 'utf-8'),
+        path: join(this.outDirAbs, 'index.ts'),
+        contents: indexContents,
       },
     ]
   }

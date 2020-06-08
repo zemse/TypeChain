@@ -1,26 +1,31 @@
 import { FunctionDeclaration, isConstant, isConstantFn, FunctionDocumentation, getSignatureForFn } from 'typechain'
 import { generateInputTypes, generateOutputTypes } from './types'
 
-export function codegenFunctions(fns: FunctionDeclaration[]): string {
+export function codegenFunctions(usingResultObject: boolean, fns: FunctionDeclaration[]): string {
   if (fns.length === 1) {
-    return generateFunction(fns[0])
+    return generateFunction(usingResultObject, fns[0])
   }
 
-  return codegenForOverloadedFunctions(fns)
+  return codegenForOverloadedFunctions(usingResultObject, fns)
 }
 
-export function codegenForOverloadedFunctions(fns: FunctionDeclaration[]): string {
-  return fns.map((fn) => generateFunction(fn, `"${getSignatureForFn(fn)}"`)).join('\n')
+export function codegenForOverloadedFunctions(usingResultObject: boolean, fns: FunctionDeclaration[]): string {
+  return fns.map((fn) => generateFunction(usingResultObject, fn, `"${getSignatureForFn(fn)}"`)).join('\n')
 }
 
-function generateFunction(fn: FunctionDeclaration, overloadedName?: string): string {
+function isPayable(fn: FunctionDeclaration): boolean {
+  return fn.stateMutability === 'payable'
+}
+
+function generateFunction(usingResultObject: boolean, fn: FunctionDeclaration, overloadedName?: string): string {
+  // console.log(fn)
   return `
   ${generateFunctionDocumentation(fn.documentation)}
   ${overloadedName ?? fn.name}(${generateInputTypes(fn.inputs)}${
-    !isConstant(fn) && !isConstantFn(fn) ? 'overrides?: TransactionOverrides' : ''
+    !isConstant(fn) && !isConstantFn(fn) ? `overrides?: ${isPayable(fn) ? 'PayableOverrides' : 'Overrides'}` : ''
   }): Promise<${
     fn.stateMutability === 'pure' || fn.stateMutability === 'view'
-      ? generateOutputTypes(fn.outputs)
+      ? generateOutputTypes(fn.outputs, usingResultObject)
       : 'ContractTransaction'
   }>;
 `
