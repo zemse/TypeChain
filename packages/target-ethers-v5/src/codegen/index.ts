@@ -12,7 +12,7 @@ import { codegenFunctions } from './functions'
 
 export function codegenContractTypings(contract: Contract) {
   const template = `
-  import { ethers, Contract, ContractTransaction, EventFilter, Signer, BigNumber, BigNumberish, BytesLike, ContractInterface, Overrides } from "ethers";
+  import { ethers, Contract, ContractTransaction, PopulatedTransaction, EventFilter, Signer, BigNumber, BigNumberish, BytesLike, ContractInterface, Overrides } from "ethers";
 
   export class ${contract.name} extends Contract {
     functions: {
@@ -32,6 +32,13 @@ export function codegenContractTypings(contract: Contract) {
       ${values(contract.functions)
         .map((v: any) => v[0])
         .map(generateEstimateFunction)
+        .join('\n')}
+    };
+    
+    populateTransaction: {
+      ${values(contract.functions)
+        .map((v: any) => v[0])
+        .map(generatePopulateTransactionFunction)
         .join('\n')}
     };
   }`
@@ -159,6 +166,12 @@ function generateLibraryAddressesInterface(contract: Contract, bytecode: Bytecod
 function generateEstimateFunction(fn: FunctionDeclaration): string {
   return `
   ${fn.name}(${generateInputTypes(fn.inputs)}): Promise<BigNumber>;
+`
+}
+
+function generatePopulateTransactionFunction(fn: FunctionDeclaration): string {
+  return `
+  ${fn.name}(${generateInputTypes(fn.inputs)}): Promise<PopulatedTransaction>;
 `
 }
 
