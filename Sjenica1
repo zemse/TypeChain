@@ -1,0 +1,12 @@
+---
+"@typechain/ethers-v4-test": patch
+"@typechain/ethers-v4": patch
+"@typechain/truffle-v4-test": patch
+"@typechain/truffle-v4": patch
+"@typechain/truffle-v5-test": patch
+"@typechain/truffle-v5": patch
+"@typechain/web3-v1-test": patch
+"@typechain/web3-v1": patch
+---
+
+Fix EIP-1559 params
